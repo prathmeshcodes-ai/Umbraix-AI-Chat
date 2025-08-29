@@ -30,6 +30,8 @@
             --popup-bg: rgba(255, 255, 255, 0.95);
             --error-bg: #fee;
             --error-color: #c33;
+            --code-bg: #f8f9fa;
+            --code-border: #e9ecef;
         }
 
         body {
@@ -99,7 +101,7 @@
             border-radius: 18px;
             position: relative;
             animation: fadeIn 0.3s ease;
-            line-height: 1.5;
+            line-height: 1.6;
         }
 
         @keyframes fadeIn {
@@ -131,6 +133,35 @@
 
         .ai-message p:last-child {
             margin-bottom: 0;
+        }
+
+        /* Code block styling */
+        .ai-message pre {
+            background: var(--code-bg);
+            border: 1px solid var(--code-border);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .ai-message code {
+            background: var(--code-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            border: 1px solid var(--code-border);
+        }
+
+        .ai-message pre code {
+            background: none;
+            padding: 0;
+            border: none;
+            border-radius: 0;
         }
 
         .error-message {
@@ -457,6 +488,29 @@
             text-decoration: none;
         }
 
+        /* Welcome message styling */
+        .welcome-message {
+            text-align: center;
+            padding: 20px;
+            background: rgba(34, 34, 34, 0.03);
+            border-radius: 15px;
+            margin-bottom: 20px;
+            align-self: center;
+            max-width: 80%;
+            border: 1px solid var(--border);
+        }
+
+        .welcome-message h3 {
+            color: var(--primary);
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .welcome-message p {
+            color: var(--gray);
+            font-size: 0.95rem;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             body {
@@ -587,29 +641,6 @@
         .chat-messages::-webkit-scrollbar-thumb:hover {
             background: #a1a1a1;
         }
-
-        /* Welcome message styling */
-        .welcome-message {
-            text-align: center;
-            padding: 20px;
-            background: rgba(34, 34, 34, 0.03);
-            border-radius: 15px;
-            margin-bottom: 20px;
-            align-self: center;
-            max-width: 80%;
-            border: 1px solid var(--border);
-        }
-
-        .welcome-message h3 {
-            color: var(--primary);
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        .welcome-message p {
-            color: var(--gray);
-            font-size: 0.95rem;
-        }
     </style>
 </head>
 <body>
@@ -719,6 +750,18 @@
             creative: "You are Umbraix AI in Creative mode. Be imaginative, innovative, and think outside the box. Provide creative solutions, generate novel ideas, use analogies, and approach problems from unique angles. Be inspiring and original."
         };
 
+        // Utility function to escape HTML
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
             if (!GEMINI_API_KEY) {
@@ -753,6 +796,39 @@
             }
         }
 
+        // Fixed formatAIResponse function to handle code properly
+        function formatAIResponse(text) {
+            // First, escape all HTML characters to prevent injection
+            let escapedText = escapeHtml(text);
+            
+            // Handle code blocks first (triple backticks)
+            escapedText = escapedText.replace(/``````/g, function(match, code) {
+                return '<pre><code>' + code.trim() + '</code></pre>';
+            });
+            
+            // Handle inline code (single backticks) - but not if it's inside a code block
+            escapedText = escapedText.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+            
+            // Handle bold text
+            escapedText = escapedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            
+            // Handle italic text
+            escapedText = escapedText.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            
+            // Handle line breaks and paragraphs
+            escapedText = escapedText.replace(/\n\n/g, '</p><p>');
+            escapedText = escapedText.replace(/\n/g, '<br>');
+            
+            // Wrap in paragraph tags
+            escapedText = '<p>' + escapedText + '</p>';
+            
+            // Clean up empty paragraphs
+            escapedText = escapedText.replace(/<p><\/p>/g, '');
+            escapedText = escapedText.replace(/<p>\s*<\/p>/g, '');
+            
+            return escapedText;
+        }
+
         // Message Management
         function addMessage(text, isUser = false, isError = false) {
             const messageDiv = document.createElement('div');
@@ -767,7 +843,7 @@
                     messageDiv.classList.add('error-message');
                 }
                 
-                // Convert markdown-style formatting to HTML
+                // Use the fixed formatting function
                 const formattedText = formatAIResponse(text);
                 messageDiv.innerHTML = formattedText;
                 
@@ -786,20 +862,6 @@
 
         function addInitialMessage() {
             addMessage("Hello! I'm Umbraix AI, powered by Google Gemini 2.5 Flash. How can I help you today?");
-        }
-
-        function formatAIResponse(text) {
-            // Convert markdown-style formatting to HTML
-            return text
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/``````/g, '<pre><code>$1</code></pre>')
-                .replace(/`(.*?)`/g, '<code>$1</code>')
-                .replace(/\n\n/g, '</p><p>')
-                .replace(/\n/g, '<br>')
-                .replace(/^/, '<p>')
-                .replace(/$/, '</p>')
-                .replace(/<p><\/p>/g, '');
         }
 
         function getModeDisplayName(mode) {
